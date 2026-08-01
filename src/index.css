@@ -1,0 +1,141 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Dark Mode global overrides ────────────────────────────────────────────
+   CSS outside @layer has higher cascade priority than Tailwind utilities,
+   so these rules win without !important.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.dark { color-scheme: dark; }
+
+.dark html,
+.dark body {
+  background-color: rgb(2 6 23); /* slate-950 */
+}
+
+/* Backgrounds */
+.dark .bg-white,
+.dark .bg-slate-50 {
+  background-color: rgb(15 23 42); /* slate-900 */
+}
+
+.dark .bg-slate-100 {
+  background-color: rgb(30 41 59); /* slate-800 */
+}
+
+/* Semantic colour overrides for better dark-mode appearance */
+.dark .bg-emerald-50 {
+  background-color: rgb(5 46 22 / 0.25); /* emerald-950/25 */
+}
+
+.dark .bg-amber-50 {
+  background-color: rgb(120 53 15 / 0.2); /* amber-900/20 */
+}
+
+/* Borders */
+.dark .border-slate-200 { border-color: rgb(51 65 85); }  /* slate-700 */
+.dark .border-slate-100 { border-color: rgb(30 41 59); }  /* slate-800 */
+.dark .border-slate-300 { border-color: rgb(51 65 85); }  /* slate-700 */
+
+/* Text */
+.dark .text-slate-900 { color: rgb(248 250 252); }  /* slate-50  */
+.dark .text-slate-800 { color: rgb(241 245 249); }  /* slate-100 */
+.dark .text-slate-700 { color: rgb(226 232 240); }  /* slate-200 */
+.dark .text-slate-600 { color: rgb(203 213 225); }  /* slate-300 */
+.dark .text-slate-500 { color: rgb(148 163 184); }  /* slate-400 */
+.dark .text-slate-400 { color: rgb(100 116 139); }  /* slate-500 */
+
+/* Hover overrides */
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-white:hover     { background-color: rgb(30 41 59); }  /* slate-800 */
+.dark .hover\:bg-slate-100:hover { background-color: rgb(51 65 85); }  /* slate-700 */
+.dark .hover\:text-slate-900:hover { color: rgb(248 250 252); }
+
+/* Form inputs */
+.dark input:not([type="color"]):not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.dark select,
+.dark textarea {
+  background-color: rgb(30 41 59); /* slate-800 */
+  border-color: rgb(51 65 85);     /* slate-700 */
+  color: rgb(226 232 240);          /* slate-200 */
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: rgb(100 116 139); /* slate-500 */
+}
+
+/* Shadow softening on dark surfaces */
+.dark .shadow-sm  { box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.4); }
+.dark .shadow-lg  { box-shadow: 0 10px 25px -3px rgb(0 0 0 / 0.5); }
+
+/* ── Mobile Table Scroll ────────────────────────────────────────────────────
+   Utility class for horizontal-scrollable table containers.
+   Tailwind already applies these inline on existing wrappers; this class
+   lets future markup use a single classname instead of repeating the chain.
+   ────────────────────────────────────────────────────────────────────────── */
+.table-responsive-container {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  display: block;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+  scrollbar-width: thin;
+  max-width: 100%;
+}
+
+.table-responsive-container table {
+  min-width: 800px;
+  width: 100%;
+}
+
+/* Ensure any overflow-x-auto wrapper used on tables scrolls smoothly on touch */
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+/* Action button cells should never wrap on mobile */
+.action-buttons-cell {
+  white-space: nowrap;
+  min-width: 120px;
+}
+
+/* ── Loading Skeleton ───────────────────────────────────────────────────────
+   Use class="loading-skeleton rounded-md" on placeholder divs.
+   ────────────────────────────────────────────────────────────────────────── */
+.loading-skeleton {
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: loading-pulse 1.5s infinite;
+}
+
+@keyframes loading-pulse {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.dark .loading-skeleton {
+  background: linear-gradient(90deg, rgb(30 41 59) 25%, rgb(51 65 85) 50%, rgb(30 41 59) 75%);
+  background-size: 200% 100%;
+}
+
+/* ── Translation Engine Protection ─────────────────────────────────────────
+   Prevent Google Translate / browser auto-translators from altering
+   font-family on notranslate elements, which can cause layout shifts.
+   ────────────────────────────────────────────────────────────────────────── */
+[translate="no"],
+.notranslate {
+  font-family: inherit !important;
+}
+
+/* ── Toast Notification ───────────────────────────────────────────────────── */
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, -20px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+.toast-notification {
+  animation: toast-in 0.3s ease-out forwards;
+}

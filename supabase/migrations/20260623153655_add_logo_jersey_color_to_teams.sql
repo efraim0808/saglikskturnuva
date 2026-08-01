@@ -1,0 +1,7 @@
+ALTER TABLE teams
+  ADD COLUMN IF NOT EXISTS logo_url TEXT,
+  ADD COLUMN IF NOT EXISTS jersey_color TEXT DEFAULT '#16a34a';
+
+ALTER TABLE team_applications
+  ADD COLUMN IF NOT EXISTS logo_url TEXT,
+  ADD COLUMN IF NOT EXISTS jersey_color TEXT;
