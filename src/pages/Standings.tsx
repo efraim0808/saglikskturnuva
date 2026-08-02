@@ -20,121 +20,43 @@ export function Standings() {
     penalties,
   }), [selectedTournament, teams, fixtures, matches, penalties]);
 
-  // Calculate head-to-head (ikili averaj) for tied teams
-  function getHeadToHeadSummary(teamAId: string, teamBId: string) {
-    const h2hFixtures = fixtures.filter(f => {
-      const isMatch = (f.home_team_id === teamAId && f.away_team_id === teamBId) ||
-                      (f.home_team_id === teamBId && f.away_team_id === teamAId);
-      return isMatch && (f.status === 'completed' || f.status === 'forfeit');
-    });
-
-    let teamAPoints = 0;
-    let teamBPoints = 0;
-    let teamAGoalsFor = 0;
-    let teamAGoalsAgainst = 0;
-    let teamBGoalsFor = 0;
-    let teamBGoalsAgainst = 0;
-
-    for (const fixture of h2hFixtures) {
-      const match = matches.find(m => m.fixture_id === fixture.id);
-      if (!match) continue;
-      const winPoints = selectedTournament?.win_points || 3;
-      const drawPoints = selectedTournament?.draw_points || 1;
-      const lossPoints = selectedTournament?.loss_points || -1;
-
-      if (match.home_score > match.away_score) {
-        if (fixture.home_team_id === teamAId) {
-          teamAPoints += winPoints;
-          teamBPoints += lossPoints;
-          teamAGoalsFor += match.home_score;
-          teamAGoalsAgainst += match.away_score;
-          teamBGoalsFor += match.away_score;
-          teamBGoalsAgainst += match.home_score;
-        } else {
-          teamBPoints += winPoints;
-          teamAPoints += lossPoints;
-          teamBGoalsFor += match.home_score;
-          teamBGoalsAgainst += match.away_score;
-          teamAGoalsFor += match.away_score;
-          teamAGoalsAgainst += match.home_score;
-        }
-      } else if (match.home_score < match.away_score) {
-        if (fixture.away_team_id === teamAId) {
-          teamAPoints += winPoints;
-          teamBPoints += lossPoints;
-          teamAGoalsFor += match.away_score;
-          teamAGoalsAgainst += match.home_score;
-          teamBGoalsFor += match.home_score;
-          teamBGoalsAgainst += match.away_score;
-        } else {
-          teamBPoints += winPoints;
-          teamAPoints += lossPoints;
-          teamBGoalsFor += match.away_score;
-          teamBGoalsAgainst += match.home_score;
-          teamAGoalsFor += match.home_score;
-          teamAGoalsAgainst += match.away_score;
-        }
-      } else {
-        teamAPoints += drawPoints;
-        teamBPoints += drawPoints;
-        teamAGoalsFor += match.home_score;
-        teamAGoalsAgainst += match.away_score;
-        teamBGoalsFor += match.away_score;
-        teamBGoalsAgainst += match.home_score;
-      }
-    }
-
-    return {
-      teamAPoints,
-      teamBPoints,
-      teamAGoalsFor,
-      teamAGoalsAgainst,
-      teamBGoalsFor,
-      teamBGoalsAgainst,
-      directFixturesCount: h2hFixtures.length,
-    };
-  }
-
-  // Smart sorting with tie-breakers
   const sortedStandings = [...effectiveStandings].sort((a, b) => {
-    // 1. Total Points
+    // 1. Önce Ana Puan
     if (b.points !== a.points) return b.points - a.points;
 
-    const h2h = getHeadToHeadSummary(a.team_id, b.team_id);
+    // 2. İki takım kendi arasında maç yapmış mı? (H2H)
+    const h2hMatch = fixtures.find(
+      (f) =>
+        f.status === 'completed' &&
+        ((f.home_team_id === a.team_id && f.away_team_id === b.team_id) ||
+          (f.home_team_id === b.team_id && f.away_team_id === a.team_id))
+    );
 
-    // 2. Head-to-head only when there is a direct completed fixture between the two teams.
-    if (h2h.directFixturesCount > 0) {
-      if (h2h.teamBPoints !== h2h.teamAPoints) {
-        return h2h.teamBPoints - h2h.teamAPoints;
-      }
+    if (h2hMatch) {
+      const aIsHome = h2hMatch.home_team_id === a.team_id;
+      const aScore = aIsHome ? h2hMatch.home_score : h2hMatch.away_score;
+      const bScore = aIsHome ? h2hMatch.away_score : h2hMatch.home_score;
 
-      const aH2hGD = h2h.teamAGoalsFor - h2h.teamAGoalsAgainst;
-      const bH2hGD = h2h.teamBGoalsFor - h2h.teamBGoalsAgainst;
-      if (aH2hGD !== bH2hGD) {
-        return bH2hGD - aH2hGD;
-      }
-
-      if (h2h.teamAGoalsFor !== h2h.teamBGoalsFor) {
-        return h2h.teamBGoalsFor - h2h.teamAGoalsFor;
-      }
-
-      if (h2h.teamAGoalsAgainst !== h2h.teamBGoalsAgainst) {
-        return h2h.teamAGoalsAgainst - h2h.teamBGoalsAgainst;
+      // Eğer aralarındaki maç berabere DEĞİLSE, kazanan doğrudan üstte!
+      if (aScore !== bScore) {
+        return (bScore ?? 0) - (aScore ?? 0);
       }
     }
 
-    // 3. General Goal Difference
-    const aGD = a.goals_for - a.goals_against;
-    const bGD = b.goals_for - b.goals_against;
-    if (bGD !== aGD) return bGD - aGD;
+    // 3. Aralarında maç yoksa veya berabereyse: Genel Averaj
+    const aGoalDifference = a.goals_for - a.goals_against;
+    const bGoalDifference = b.goals_for - b.goals_against;
+    if (bGoalDifference !== aGoalDifference) {
+      return bGoalDifference - aGoalDifference;
+    }
 
-    // 4. Goals Scored
-    if (b.goals_for !== a.goals_for) return b.goals_for - a.goals_for;
+    // 4. Attığı Gol
+    if (b.goals_for !== a.goals_for) {
+      return b.goals_for - a.goals_for;
+    }
 
-    // 5. Goals Conceded (fewer is better)
-    if (a.goals_against !== b.goals_against) return a.goals_against - b.goals_against;
-
-    return 0;
+    // 5. Yediği Gol (Az olan üstte)
+    return a.goals_against - b.goals_against;
   });
 
   return (
