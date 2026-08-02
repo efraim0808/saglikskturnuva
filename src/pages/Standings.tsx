@@ -20,44 +20,57 @@ export function Standings() {
     penalties,
   }), [selectedTournament, teams, fixtures, matches, penalties]);
 
-  const sortedStandings = [...effectiveStandings].sort((a, b) => {
-    // 1. Önce Ana Puan
-    if (b.points !== a.points) return b.points - a.points;
+  const sortedStandings = (() => {
+    const groups = new Map<number, typeof effectiveStandings>();
 
-    // 2. İki takım kendi arasında maç yapmış mı? (H2H)
-    const h2hMatch = fixtures.find(
-      (f) =>
-        f.status === 'completed' &&
-        ((f.home_team_id === a.team_id && f.away_team_id === b.team_id) ||
-          (f.home_team_id === b.team_id && f.away_team_id === a.team_id))
-    );
-
-    if (h2hMatch) {
-      const aIsHome = h2hMatch.home_team_id === a.team_id;
-      const aScore = aIsHome ? h2hMatch.home_score : h2hMatch.away_score;
-      const bScore = aIsHome ? h2hMatch.away_score : h2hMatch.home_score;
-
-      // Eğer aralarındaki maç berabere DEĞİLSE, kazanan doğrudan üstte!
-      if (aScore !== bScore) {
-        return (bScore ?? 0) - (aScore ?? 0);
-      }
+    for (const team of effectiveStandings) {
+      const score = team.points;
+      const existing = groups.get(score) || [];
+      existing.push(team);
+      groups.set(score, existing);
     }
 
-    // 3. Aralarında maç yoksa veya berabereyse: Genel Averaj
-    const aGoalDifference = a.goals_for - a.goals_against;
-    const bGoalDifference = b.goals_for - b.goals_against;
-    if (bGoalDifference !== aGoalDifference) {
-      return bGoalDifference - aGoalDifference;
-    }
+    const sortedGroups: typeof effectiveStandings = [];
 
-    // 4. Attığı Gol
-    if (b.goals_for !== a.goals_for) {
-      return b.goals_for - a.goals_for;
-    }
+    Array.from(groups.entries())
+      .sort((a, b) => b[0] - a[0])
+      .forEach(([, teamsInGroup]) => {
+        const orderedGroup = [...teamsInGroup].sort((a, b) => {
+          const h2hMatch = fixtures.find(
+            (f) =>
+              f.status === 'completed' &&
+              ((f.home_team_id === a.team_id && f.away_team_id === b.team_id) ||
+                (f.home_team_id === b.team_id && f.away_team_id === a.team_id))
+          );
 
-    // 5. Yediği Gol (Az olan üstte)
-    return a.goals_against - b.goals_against;
-  });
+          if (h2hMatch) {
+            const aIsHome = h2hMatch.home_team_id === a.team_id;
+            const aScore = aIsHome ? h2hMatch.home_score : h2hMatch.away_score;
+            const bScore = aIsHome ? h2hMatch.away_score : h2hMatch.home_score;
+
+            if (aScore !== bScore) {
+              return (bScore ?? 0) - (aScore ?? 0);
+            }
+          }
+
+          const aGoalDifference = a.goals_for - a.goals_against;
+          const bGoalDifference = b.goals_for - b.goals_against;
+          if (bGoalDifference !== aGoalDifference) {
+            return bGoalDifference - aGoalDifference;
+          }
+
+          if (b.goals_for !== a.goals_for) {
+            return b.goals_for - a.goals_for;
+          }
+
+          return a.goals_against - b.goals_against;
+        });
+
+        sortedGroups.push(...orderedGroup);
+      });
+
+    return sortedGroups;
+  })();
 
   return (
     <div className="space-y-6">
