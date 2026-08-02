@@ -106,37 +106,52 @@ export function recalculateStandingsFromMatches({
     s.points += penalty.points;
   }
 
-  const sortedStandings = Array.from(stats.values()).sort((a, b) => {
+const sortedStandings = Array.from(stats.values()).sort((a, b) => {
+    // 1. Puan
     if (b.points !== a.points) return b.points - a.points;
 
+    // 2. İkili Averaj (H2H)
     const h2hMatch = fixtures.find((f) => {
       if (f.status !== 'completed') return false;
       return (
         (f.home_team_id === a.team_id && f.away_team_id === b.team_id) ||
         (f.home_team_id === b.team_id && f.away_team_id === a.team_id) ||
         (f.home_team_name === a.team?.name && f.away_team_name === b.team?.name) ||
-        (f.home_team_name === b.team?.name && f.away_team_name === a.team?.name)
+        (f.home_team_name === b.team?.name && f.away_team_name === a.team?.name) ||
+        (f.home_team_name === a.team_name && f.away_team_name === b.team_name) ||
+        (f.home_team_name === b.team_name && f.away_team_name === a.team_name)
       );
     });
 
     if (h2hMatch) {
-      const match = matches.find((m) => m.fixture_id === h2hMatch.id);
-      if (match?.status === 'completed') {
-        const isATeamHome = h2hMatch.home_team_id === a.team_id || h2hMatch.home_team_name === a.team?.name;
-        const aGoals = isATeamHome ? Number(match.home_score) : Number(match.away_score);
-        const bGoals = isATeamHome ? Number(match.away_score) : Number(match.home_score);
+      // Hem fixture hem de match objesinden skor araması yapıyoruz (Hangisinde varsa)
+      const match = matches.find((m) => m.fixture_id === h2hMatch.id) || h2hMatch;
+      
+      const isATeamHome =
+        h2hMatch.home_team_id === a.team_id ||
+        h2hMatch.home_team_name === a.team?.name ||
+        h2hMatch.home_team_name === a.team_name;
 
-        if (aGoals !== bGoals) {
-          return bGoals - aGoals;
-        }
+      const homeScore = match.home_score ?? (match as any).score_home ?? 0;
+      const awayScore = match.away_score ?? (match as any).score_away ?? 0;
+
+      const aGoals = Number(isATeamHome ? homeScore : awayScore);
+      const bGoals = Number(isATeamHome ? awayScore : homeScore);
+
+      if (!isNaN(aGoals) && !isNaN(bGoals) && aGoals !== bGoals) {
+        return bGoals - aGoals; // Maçı kazananı doğrudan üst sıraya taşır!
       }
     }
 
+    // 3. Genel Averaj
     const aGoalDifference = a.goals_for - a.goals_against;
     const bGoalDifference = b.goals_for - b.goals_against;
     if (bGoalDifference !== aGoalDifference) return bGoalDifference - aGoalDifference;
 
+    // 4. Attığı Gol
     if (b.goals_for !== a.goals_for) return b.goals_for - a.goals_for;
+
+    // 5. Yediği Gol
     return a.goals_against - b.goals_against;
   });
 
