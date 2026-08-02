@@ -1,38 +1,24 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../AppContext';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
+import { Card, CardContent } from '../components/ui/Card';
 import { TeamDetailModal } from '../components/TeamDetailModal';
-import { Trophy, AlertTriangle, ShieldCheck, BookOpen, X } from 'lucide-react';
+import { Trophy, AlertTriangle, BookOpen, X } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { loadCachedStandings, recalculateStandingsFromMatches } from '../lib/standingsCache';
+import { recalculateStandingsFromMatches } from '../lib/standingsCache';
 import type { Team } from '../types';
 
 export function Standings() {
-  const { standings, selectedTournament, penalties, fixtures, matches, teams, isDataLoading } = useApp();
+  const { selectedTournament, penalties, fixtures, matches, teams, isDataLoading } = useApp();
   const [detailTeam, setDetailTeam] = useState<Team | null>(null);
   const [showRules, setShowRules] = useState(false);
 
-  // Steel cache shield: if live standings is empty, fall back to cache, then to
-  // dynamic recalculation from completed match scores. The user never sees an
-  // empty table or infinite spinner.
-  const effectiveStandings = useMemo(() => {
-    if (standings && standings.length > 0) return standings;
-    const tid = selectedTournament?.id;
-    if (tid) {
-      const cached = loadCachedStandings(tid);
-      if (cached && cached.length > 0) return cached;
-    }
-    const recalc = recalculateStandingsFromMatches({
-      tournament: selectedTournament,
-      teams,
-      fixtures,
-      matches,
-      penalties,
-    });
-    return recalc;
-  }, [standings, selectedTournament, teams, fixtures, matches, penalties]);
-
-  const isFallback = (!standings || standings.length === 0) && effectiveStandings.length > 0;
+  const effectiveStandings = useMemo(() => recalculateStandingsFromMatches({
+    tournament: selectedTournament,
+    teams,
+    fixtures,
+    matches,
+    penalties,
+  }), [selectedTournament, teams, fixtures, matches, penalties]);
 
   // Calculate head-to-head (ikili averaj) for tied teams
   function getHeadToHeadPoints(teamAId: string, teamBId: string) {
@@ -68,7 +54,7 @@ export function Standings() {
       }
     }
 
-    return { teamAPoints, teamBPoints };
+    return { teamAPoints, teamBPoints, directFixturesCount: h2hFixtures.length };
   }
 
   // Smart sorting with tie-breakers
@@ -78,7 +64,7 @@ export function Standings() {
 
     // 2. Head-to-head (ikili averaj)
     const h2h = getHeadToHeadPoints(a.team_id, b.team_id);
-    if (h2h.teamBPoints !== h2h.teamAPoints) {
+    if (h2h.directFixturesCount > 0 && h2h.teamBPoints !== h2h.teamAPoints) {
       return h2h.teamBPoints - h2h.teamAPoints;
     }
 
@@ -99,12 +85,6 @@ export function Standings() {
           <p className="text-slate-500">{selectedTournament?.name}</p>
         </div>
         <div className="flex items-center gap-3">
-          {isFallback && (
-            <span className="flex items-center gap-1.5 text-xs text-sky-700 bg-sky-50 border border-sky-200 px-2.5 py-1 rounded-full">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Yerel önbellekten gösteriliyor
-            </span>
-          )}
           {selectedTournament && (
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-1.5 text-sm text-slate-500 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">

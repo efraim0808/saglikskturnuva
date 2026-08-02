@@ -8,33 +8,16 @@ function cacheKey(tournamentId: string): string {
   return `${CACHE_KEY_PREFIX}${tournamentId}`;
 }
 
-export function loadCachedStandings(tournamentId: string): Standing[] | null {
-  try {
-    const raw = localStorage.getItem(cacheKey(tournamentId));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return null;
-    return parsed as Standing[];
-  } catch {
-    return null;
-  }
+export function loadCachedStandings(_tournamentId: string): Standing[] | null {
+  return null;
 }
 
-export function saveCachedStandings(tournamentId: string, standings: Standing[]): void {
-  if (!standings || standings.length === 0) return;
-  try {
-    localStorage.setItem(cacheKey(tournamentId), JSON.stringify(standings));
-  } catch {
-    // ignore quota / serialization errors — cache is best-effort
-  }
+export function saveCachedStandings(_tournamentId: string, _standings: Standing[]): void {
+  // Cache disabled for live standings.
 }
 
-export function clearCachedStandings(tournamentId: string): void {
-  try {
-    localStorage.removeItem(cacheKey(tournamentId));
-  } catch {
-    // ignore
-  }
+export function clearCachedStandings(_tournamentId: string): void {
+  // Cache disabled for live standings.
 }
 
 interface RecalcOptions {
@@ -128,48 +111,30 @@ export function recalculateStandingsFromMatches({
 
 // ── Generic per-tournament caches for matches and players ─────────────────────
 
-function safeRead<T>(key: string): T[] | null {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as T[]) : null;
-  } catch {
-    return null;
-  }
+function safeRead<T>(_key: string): T[] | null {
+  return null;
 }
 
-function safeWrite<T>(key: string, data: T[]): void {
-  if (!data || data.length === 0) return;
-  try {
-    localStorage.setItem(key, JSON.stringify(data));
-  } catch {
-    // ignore quota / serialization errors
-  }
+function safeWrite<T>(_key: string, _data: T[]): void {
+  // Cache disabled for live standings.
 }
 
-export function loadCachedMatches(tournamentId: string): Match[] | null {
-  return safeRead<Match>(`${MATCHES_CACHE_KEY_PREFIX}${tournamentId}`);
+export function loadCachedMatches(_tournamentId: string): Match[] | null {
+  return safeRead<Match>('');
 }
 
-export function saveCachedMatches(tournamentId: string, matches: Match[]): void {
-  safeWrite(`${MATCHES_CACHE_KEY_PREFIX}${tournamentId}`, matches);
+export function saveCachedMatches(_tournamentId: string, _matches: Match[]): void {
+  // Cache disabled for live standings.
 }
 
-export function loadCachedPlayers(tournamentId: string): Player[] | null {
-  return safeRead<Player>(`${PLAYERS_CACHE_KEY_PREFIX}${tournamentId}`);
+export function loadCachedPlayers(_tournamentId: string): Player[] | null {
+  return safeRead<Player>('');
 }
 
-export function saveCachedPlayers(tournamentId: string, players: Player[]): void {
-  safeWrite(`${PLAYERS_CACHE_KEY_PREFIX}${tournamentId}`, players);
+export function saveCachedPlayers(_tournamentId: string, _players: Player[]): void {
+  // Cache disabled for live standings.
 }
 
-export function clearAllTournamentCache(tournamentId: string): void {
-  try {
-    localStorage.removeItem(`${CACHE_KEY_PREFIX}${tournamentId}`);
-    localStorage.removeItem(`${MATCHES_CACHE_KEY_PREFIX}${tournamentId}`);
-    localStorage.removeItem(`${PLAYERS_CACHE_KEY_PREFIX}${tournamentId}`);
-  } catch {
-    // ignore
-  }
+export function clearAllTournamentCache(_tournamentId: string): void {
+  // Cache disabled for live standings.
 }

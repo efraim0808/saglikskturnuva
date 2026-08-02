@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from './lib/supabase';
 import { toTurkishUpper, normalizeTurkish, toLocalDatetimeInputValue } from './lib/utils';
-import { loadCachedStandings, saveCachedStandings, clearCachedStandings, loadCachedMatches, saveCachedMatches, loadCachedPlayers, saveCachedPlayers, clearAllTournamentCache, recalculateStandingsFromMatches } from './lib/standingsCache';
+import { recalculateStandingsFromMatches } from './lib/standingsCache';
 import type { Tournament, Team, Fixture, FixtureStatus, Match, MatchStatus, MatchEvent, Standing, UserRole, AppUser, Player, Penalty, PlayerSuspension, SystemUser, TeamApplication, UserApprovalStatus, Sponsor, SponsorCategory, GalleryItem, MatchLineup, LineupStatus, PasswordResetRequest } from './types';
 
 interface AppContextType {
@@ -214,30 +214,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Load tournament data when selected changes
   useEffect(() => {
     if (selectedTournament) {
-      const tid = selectedTournament.id;
-
-      // Instantly hydrate all three data layers from cache before the network
-      // request completes. User sees a populated page in milliseconds.
-      const cachedStandings = loadCachedStandings(tid);
-      const cachedMatches = loadCachedMatches(tid);
-      const cachedPlayers = loadCachedPlayers(tid);
-
-      if (cachedStandings && cachedStandings.length > 0) {
-        setStandings(prev => (prev.length > 0 ? prev : cachedStandings));
-      }
-      if (cachedMatches && cachedMatches.length > 0) {
-        setMatches(prev => (prev.length > 0 ? prev : cachedMatches));
-      }
-      if (cachedPlayers && cachedPlayers.length > 0) {
-        setPlayers(prev => (prev.length > 0 ? prev : cachedPlayers));
-      }
-
-      // isDataLoading = true only when we have NO cache at all (first-ever visit)
-      const hasSomeCache = (cachedStandings && cachedStandings.length > 0) ||
-                           (cachedMatches   && cachedMatches.length   > 0) ||
-                           (cachedPlayers   && cachedPlayers.length   > 0);
-      if (!hasSomeCache) setIsDataLoading(true);
-
+      setIsDataLoading(true);
       refreshData().finally(() => setIsDataLoading(false));
     }
   }, [selectedTournament?.id]);
@@ -302,9 +279,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     if (matchesRes.data && matchesRes.data.length > 0) {
       setMatches(matchesRes.data);
-      saveCachedMatches(tid, matchesRes.data);
     } else if (matchesRes.data && matchesRes.data.length === 0) {
-      // Genuinely no matches yet — clear cache and reflect empty state
       setMatches([]);
     }
     // If matchesRes.data is null (network error), keep existing state (anti-overwrite)
@@ -322,22 +297,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         team: teamsRes.data?.find((t: Team) => t.id === s.team_id),
       }));
       setStandings(enrichedStandings);
-      saveCachedStandings(tid, enrichedStandings);
-    } else {
-      // Anti-overwrite: DB returned empty/error — do NOT clear state.
-      // Fall back to localStorage cache if available; enrich with freshly fetched teams.
-      const cached = loadCachedStandings(tid);
-      if (cached && cached.length > 0) {
-        const enrichedFromCache = cached.map((s: Standing) => ({
-          ...s,
-          team: teamsRes.data?.find((t: Team) => t.id === s.team_id) || s.team,
-        }));
-        setStandings(prev => (prev.length > 0 ? prev : enrichedFromCache));
-      }
     }
     if (playersRes.data && playersRes.data.length > 0) {
       setPlayers(playersRes.data);
-      saveCachedPlayers(tid, playersRes.data);
     } else if (playersRes.data && playersRes.data.length === 0) {
       setPlayers([]);
     }
@@ -861,7 +823,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await supabase.from('fixtures').delete().eq('tournament_id', tournamentId);
     await supabase.from('standings').delete().eq('tournament_id', tournamentId);
 
-    clearAllTournamentCache(tournamentId);
     setFixtures([]);
     setMatches([]);
     setMatchEvents([]);
@@ -1270,7 +1231,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     setStandings(recalculated);
-    saveCachedStandings(selectedTournament.id, recalculated);
   }
 
   async function assignRole(targetUserId: string, role: UserRole, teamId?: string | null) {
