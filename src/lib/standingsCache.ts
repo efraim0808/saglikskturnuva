@@ -107,28 +107,45 @@ export function recalculateStandingsFromMatches({
   }
 
   const sortedStandings = Array.from(stats.values()).sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points;
+      // 1. Puan
+      if (b.points !== a.points) return b.points - a.points;
 
-    const h2hFixture = fixtures.find((f) => {
-      if (f.status !== 'completed') return false;
-      return (
-        (f.home_team_id === a.team_id && f.away_team_id === b.team_id) ||
-        (f.home_team_id === b.team_id && f.away_team_id === a.team_id)
-      );
-    });
+      // 2. İki Takım Arasındaki Doğrudan Maç (İkili Averaj)
+      const h2hMatch = fixtures.find((f) => {
+        if (f.status !== 'completed') return false;
+        return (
+          (f.home_team_id === a.team_id && f.away_team_id === b.team_id) ||
+          (f.home_team_id === b.team_id && f.away_team_id === a.team_id) ||
+          (f.home_team_name === a.team_name && f.away_team_name === b.team_name) ||
+          (f.home_team_name === b.team_name && f.away_team_name === a.team_name)
+        );
+      });
 
-    if (h2hFixture) {
-      const h2hMatch = matches.find((m) => m.fixture_id === h2hFixture.id);
-      if (h2hMatch?.status === 'completed') {
-        const isATeamHome = h2hFixture.home_team_id === a.team_id;
-        const aGoals = isATeamHome ? h2hMatch.home_score : h2hMatch.away_score;
-        const bGoals = isATeamHome ? h2hMatch.away_score : h2hMatch.home_score;
+      if (h2hMatch) {
+        const match = matches.find((m) => m.fixture_id === h2hMatch.id) || h2hMatch;
+        const isATeamHome =
+          match.home_team_id === a.team_id || match.home_team_name === a.team_name;
 
-        if (aGoals !== bGoals) {
+        const aGoals = Number(isATeamHome ? match.home_score : match.away_score);
+        const bGoals = Number(isATeamHome ? match.away_score : match.home_score);
+
+        // Eğer aralarında maç var ve biri kazandıysa DİREKT O ÜSTE GEÇER!
+        if (!isNaN(aGoals) && !isNaN(bGoals) && aGoals !== bGoals) {
           return bGoals - aGoals;
         }
       }
-    }
+
+      // 3. Genel Averaj (Troponin United burada hak ettiği gibi 0 averajla alta düşer!)
+      const aGoalDiff = a.goals_for - a.goals_against;
+      const bGoalDiff = b.goals_for - b.goals_against;
+      if (bGoalDiff !== aGoalDiff) return bGoalDiff - aGoalDiff;
+
+      // 4. Attığı Gol
+      if (b.goals_for !== a.goals_for) return b.goals_for - a.goals_for;
+
+      // 5. Yediği Gol
+      return a.goals_against - b.goals_against;
+    });
 
     const aGoalDifference = a.goals_for - a.goals_against;
     const bGoalDifference = b.goals_for - b.goals_against;
