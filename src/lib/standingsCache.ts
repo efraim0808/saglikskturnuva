@@ -130,7 +130,7 @@ export function recalculateStandingsFromMatches({
         const bGoals = Number(isATeamHome ? match.away_score : match.home_score);
 
         if (!isNaN(aGoals) && !isNaN(bGoals) && aGoals !== bGoals) {
-          return bGoals - aGoals;
+          return aGoals - bGoals;
         }
       }
 
