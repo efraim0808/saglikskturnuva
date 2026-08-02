@@ -62,8 +62,32 @@ export function Standings() {
     // 1. Total Points
     if (b.points !== a.points) return b.points - a.points;
 
-    // 2. Head-to-head (ikili averaj)
+    const teamAName = a.team?.name || a.team_id;
+    const teamBName = b.team?.name || b.team_id;
     const h2h = getHeadToHeadPoints(a.team_id, b.team_id);
+
+    console.log('[H2H DEBUG]', {
+      teamA: teamAName,
+      teamB: teamBName,
+      aPoints: a.points,
+      bPoints: b.points,
+      directFixturesCount: h2h.directFixturesCount,
+      teamAPoints: h2h.teamAPoints,
+      teamBPoints: h2h.teamBPoints,
+      fixtures: fixtures.filter(f => {
+        const isMatch = (f.home_team_id === a.team_id && f.away_team_id === b.team_id) ||
+                        (f.home_team_id === b.team_id && f.away_team_id === a.team_id);
+        return isMatch;
+      }).map(f => ({
+        id: f.id,
+        homeTeamId: f.home_team_id,
+        awayTeamId: f.away_team_id,
+        status: f.status,
+        match: matches.find(m => m.fixture_id === f.id),
+      })),
+    });
+
+    // 2. Head-to-head (ikili averaj)
     if (h2h.directFixturesCount > 0 && h2h.teamBPoints !== h2h.teamAPoints) {
       return h2h.teamBPoints - h2h.teamAPoints;
     }
