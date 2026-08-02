@@ -129,13 +129,12 @@ export function recalculateStandingsFromMatches({
         const aGoals = Number(isATeamHome ? match.home_score : match.away_score);
         const bGoals = Number(isATeamHome ? match.away_score : match.home_score);
 
-        // Eğer aralarında maç var ve biri kazandıysa DİREKT O ÜSTE GEÇER!
         if (!isNaN(aGoals) && !isNaN(bGoals) && aGoals !== bGoals) {
           return bGoals - aGoals;
         }
       }
 
-      // 3. Genel Averaj (Troponin United burada hak ettiği gibi 0 averajla alta düşer!)
+      // 3. Genel Averaj
       const aGoalDiff = a.goals_for - a.goals_against;
       const bGoalDiff = b.goals_for - b.goals_against;
       if (bGoalDiff !== aGoalDiff) return bGoalDiff - aGoalDiff;
@@ -147,13 +146,7 @@ export function recalculateStandingsFromMatches({
       return a.goals_against - b.goals_against;
     });
 
-    const aGoalDifference = a.goals_for - a.goals_against;
-    const bGoalDifference = b.goals_for - b.goals_against;
-    if (bGoalDifference !== aGoalDifference) return bGoalDifference - aGoalDifference;
-
-    if (b.goals_for !== a.goals_for) return b.goals_for - a.goals_for;
-    return a.goals_against - b.goals_against;
-  });
+    return sortedStandings;
 
   return sortedStandings;
 }
