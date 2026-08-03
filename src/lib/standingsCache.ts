@@ -8,16 +8,16 @@ function cacheKey(tournamentId: string): string {
   return `${CACHE_KEY_PREFIX}${tournamentId}`;
 }
 
-export function loadCachedStandings(_tournamentId: string): Standing[] | null {
-  return null;
+export function loadCachedStandings(tournamentId: string): Standing[] | null {
+  return safeRead<Standing>(cacheKey(tournamentId));
 }
 
-export function saveCachedStandings(_tournamentId: string, _standings: Standing[]): void {
-  // Cache disabled for live standings.
+export function saveCachedStandings(tournamentId: string, standings: Standing[]): void {
+  safeWrite(cacheKey(tournamentId), standings);
 }
 
-export function clearCachedStandings(_tournamentId: string): void {
-  // Cache disabled for live standings.
+export function clearCachedStandings(tournamentId: string): void {
+  safeWrite(cacheKey(tournamentId), []);
 }
 
 interface RecalcOptions {
@@ -65,11 +65,18 @@ export function recalculateStandingsFromMatches({
     f => f.status === 'completed' || f.status === 'forfeit'
   );
 
-  for (const fixture of completedFixtures) {
-    const match = matches.find(m => m.fixture_id === fixture.id);
-    if (!match) continue;
-    if (match.status !== 'completed') continue;
+  const completedMatchByFixtureId = new Map<string, Match>(
+    matches.filter(m => m.status === 'completed').map(m => [m.fixture_id, m])
+  );
 
+  const completedFixtureResults = completedFixtures
+    .map(f => {
+      const match = completedMatchByFixtureId.get(f.id);
+      return match ? { fixture: f, match } : null;
+    })
+    .filter((entry): entry is { fixture: Fixture; match: Match } => Boolean(entry));
+
+  for (const { fixture, match } of completedFixtureResults) {
     const home = stats.get(fixture.home_team_id);
     const away = stats.get(fixture.away_team_id);
     if (!home || !away) continue;
@@ -106,50 +113,101 @@ export function recalculateStandingsFromMatches({
     s.points += penalty.points;
   }
 
-  const sortedStandings = Array.from(stats.values()).sort((a, b) => {
-      // 1. Puan
-      if (b.points !== a.points) return b.points - a.points;
+  const standingsByPoints = new Map<number, Standing[]>();
+  for (const standing of stats.values()) {
+    const bucket = standingsByPoints.get(standing.points) ?? [];
+    bucket.push(standing);
+    standingsByPoints.set(standing.points, bucket);
+  }
 
-      // 2. İki Takım Arasındaki Doğrudan Maç (İkili Averaj)
-      const h2hMatch = fixtures.find((f) => {
-        if (f.status !== 'completed') return false;
-        return (
-          (f.home_team_id === a.team_id && f.away_team_id === b.team_id) ||
-          (f.home_team_id === b.team_id && f.away_team_id === a.team_id) ||
-          (f.home_team_name === a.team_name && f.away_team_name === b.team_name) ||
-          (f.home_team_name === b.team_name && f.away_team_name === a.team_name)
-        );
-      });
+  const sortedStandings: Standing[] = [];
+  const pointGroups = Array.from(standingsByPoints.entries()).sort((a, b) => b[0] - a[0]);
 
-      if (h2hMatch) {
-        const match = matches.find((m) => m.fixture_id === h2hMatch.id) || h2hMatch;
-        const isATeamHome =
-          match.home_team_id === a.team_id || match.home_team_name === a.team_name;
+  for (const [, group] of pointGroups) {
+    if (group.length === 1) {
+      sortedStandings.push(group[0]);
+      continue;
+    }
 
-        const aGoals = Number(isATeamHome ? match.home_score : match.away_score);
-        const bGoals = Number(isATeamHome ? match.away_score : match.home_score);
+    const h2hStats = buildHeadToHeadStats(group, completedFixtureResults, winPoints, drawPoints, lossPoints);
 
-        if (!isNaN(aGoals) && !isNaN(bGoals) && aGoals !== bGoals) {
-          return aGoals - bGoals;
-        }
+    group.sort((a, b) => {
+      const aH2H = h2hStats.get(a.team_id);
+      const bH2H = h2hStats.get(b.team_id);
+
+      if (aH2H && bH2H) {
+        if (bH2H.points !== aH2H.points) return bH2H.points - aH2H.points;
+
+        const aH2HDiff = aH2H.goals_for - aH2H.goals_against;
+        const bH2HDiff = bH2H.goals_for - bH2H.goals_against;
+        if (bH2HDiff !== aH2HDiff) return bH2HDiff - aH2HDiff;
+
+        if (bH2H.goals_for !== aH2H.goals_for) return bH2H.goals_for - aH2H.goals_for;
       }
 
-      // 3. Genel Averaj
       const aGoalDiff = a.goals_for - a.goals_against;
       const bGoalDiff = b.goals_for - b.goals_against;
       if (bGoalDiff !== aGoalDiff) return bGoalDiff - aGoalDiff;
 
-      // 4. Attığı Gol
       if (b.goals_for !== a.goals_for) return b.goals_for - a.goals_for;
-
-      // 5. Yediği Gol
-      return a.goals_against - b.goals_against;
+      if (a.goals_against !== b.goals_against) return a.goals_against - b.goals_against;
+      return 0;
     });
 
-    return sortedStandings;
+    sortedStandings.push(...group);
+  }
 
   return sortedStandings;
 }
+
+function buildHeadToHeadStats(
+  group: Standing[],
+  completedFixtureResults: Array<{ fixture: Fixture; match: Match }>,
+  winPoints: number,
+  drawPoints: number,
+  lossPoints: number
+): Map<string, { points: number; goals_for: number; goals_against: number; played: number }> {
+  const teamIds = new Set(group.map(s => s.team_id));
+  const stats = new Map<string, { points: number; goals_for: number; goals_against: number; played: number }>();
+
+  for (const standing of group) {
+    stats.set(standing.team_id, {
+      points: 0,
+      goals_for: 0,
+      goals_against: 0,
+      played: 0,
+    });
+  }
+
+  for (const { fixture, match } of completedFixtureResults) {
+    if (!teamIds.has(fixture.home_team_id) || !teamIds.has(fixture.away_team_id)) continue;
+
+    const home = stats.get(fixture.home_team_id);
+    const away = stats.get(fixture.away_team_id);
+    if (!home || !away) continue;
+
+    home.played += 1;
+    away.played += 1;
+    home.goals_for += match.home_score;
+    home.goals_against += match.away_score;
+    away.goals_for += match.away_score;
+    away.goals_against += match.home_score;
+
+    if (match.home_score > match.away_score) {
+      home.points += winPoints;
+      away.points += lossPoints;
+    } else if (match.home_score < match.away_score) {
+      away.points += winPoints;
+      home.points += lossPoints;
+    } else {
+      home.points += drawPoints;
+      away.points += drawPoints;
+    }
+  }
+
+  return stats;
+}
+
 
 // ── Generic per-tournament caches for matches and players ─────────────────────
 

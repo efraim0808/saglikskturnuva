@@ -20,45 +20,7 @@ export function Standings() {
     penalties,
   }), [selectedTournament, teams, fixtures, matches, penalties]);
 
-  const sortedStandings = [...effectiveStandings].sort((a, b) => {
-    // 1. Puan Kontrolü
-    if (b.points !== a.points) return b.points - a.points;
-
-    // 2. İki Takım Arasındaki Doğrudan Maç (H2H) Kontrolü
-    const h2hMatch = fixtures.find(
-      (f) =>
-        f.status === 'completed' &&
-        ((f.home_team_id === a.team_id && f.away_team_id === b.team_id) ||
-          (f.home_team_id === b.team_id && f.away_team_id === a.team_id) ||
-          (f.home_team_name === a.team?.name && f.away_team_name === b.team?.name) ||
-          (f.home_team_name === b.team?.name && f.away_team_name === a.team?.name))
-    );
-
-    if (h2hMatch) {
-      const isAHome = h2hMatch.home_team_id === a.team_id || h2hMatch.home_team_name === a.team?.name;
-      const aGoals = isAHome ? Number(h2hMatch.home_score) : Number(h2hMatch.away_score);
-      const bGoals = isAHome ? Number(h2hMatch.away_score) : Number(h2hMatch.home_score);
-
-      if (aGoals !== bGoals) {
-        return bGoals - aGoals;
-      }
-    }
-
-    // 3. Averaj
-    const aGoalDifference = a.goals_for - a.goals_against;
-    const bGoalDifference = b.goals_for - b.goals_against;
-    if (bGoalDifference !== aGoalDifference) {
-      return bGoalDifference - aGoalDifference;
-    }
-
-    // 4. Attığı Gol
-    if (b.goals_for !== a.goals_for) {
-      return b.goals_for - a.goals_for;
-    }
-
-    // 5. Yediği Gol
-    return a.goals_against - b.goals_against;
-  });
+  const sortedStandings = effectiveStandings;
 
   return (
     <div className="space-y-6">
