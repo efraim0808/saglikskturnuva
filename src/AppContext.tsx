@@ -267,7 +267,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         : Promise.resolve({ data: [] }),
     ]);
 
-    if (teamsRes.data) setTeams(teamsRes.data);
+    if (teamsRes.data) setTeams(teamsRes.data.map(team => ({ ...team, name: toTurkishUpper(team.name) })));
     if (fixturesRes.data) {
       const enrichedFixtures = fixturesRes.data.map((f: Fixture) => ({
         ...f,
@@ -335,6 +335,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (appsRes.data) {
       const enrichedApps = appsRes.data.map((a: TeamApplication) => ({
         ...a,
+        team_name: toTurkishUpper(a.team_name),
         user_email: systemUsers.find((u: SystemUser) => u.id === a.user_id)?.email || a.user_id,
       }));
       setTeamApplications(enrichedApps);
@@ -1283,10 +1284,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Application actions
   async function applyForTeam(tournamentId: string, teamName: string, department?: string, phone?: string, logoUrl?: string | null, jerseyColor?: string | null) {
     if (!user) return;
+    const upperTeamName = toTurkishUpper(teamName.trim());
     await supabase.from('team_applications').insert({
       user_id: user.id,
       tournament_id: tournamentId,
-      team_name: teamName,
+      team_name: upperTeamName,
       department: department || null,
       phone: phone || null,
       logo_url: logoUrl || null,
@@ -1303,7 +1305,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Create team
     const { data: teamData } = await supabase.from('teams').insert({
       tournament_id: app.tournament_id,
-      name: app.team_name,
+      name: toTurkishUpper(app.team_name),
       manager_name: app.user_email || 'Bilinmiyor',
       status: 'approved',
       logo_url: app.logo_url || null,

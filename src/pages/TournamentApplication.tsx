@@ -6,7 +6,7 @@ import { Select } from '../components/ui/Select';
 import {
   ClipboardList, Send, CheckCircle, Clock, AlertCircle, Trophy, Phone, Building2, ImageIcon, Palette, User, X,
 } from 'lucide-react';
-import { cn } from '../lib/utils';
+import { cn, toTurkishUpper } from '../lib/utils';
 
 export function TournamentApplication() {
   const { user, userRole, tournaments, selectedTournament, teamApplications, applyForTeam } = useApp();
@@ -128,7 +128,7 @@ export function TournamentApplication() {
                 </label>
                 <Input
                   value={teamName}
-                  onChange={e => setTeamName(e.target.value)}
+                  onChange={e => setTeamName(toTurkishUpper(e.target.value))}
                   placeholder="Örn: Acil Servis FC"
                   required
                 />
